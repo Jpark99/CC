@@ -50,3 +50,13 @@ npm run dev      # start the dev server
 npm run build    # type-check + production build
 npm run lint      # oxlint
 ```
+
+`npm install` only needs to run once (or after `package.json` changes) —
+skip it on later runs and just use `npm run dev`, which starts in under a
+second.
+
+### Quick start
+
+Double-click `start.bat` (Windows) or run `./start.sh` (macOS/Linux). Either
+one installs dependencies on the very first run only, then starts the dev
+server and opens the app in your browser automatically.
