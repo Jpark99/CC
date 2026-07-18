@@ -9,7 +9,7 @@ import type {
   FightResult,
   TitleReign,
 } from '../types';
-import { DEFAULT_WEIGHT_CLASSES } from '../utils/defaultWeightClasses';
+import { SEED_FIGHTERS, SEED_WEIGHT_CLASSES } from '../utils/seedData';
 
 interface StoreState {
   fighters: Fighter[];
@@ -57,8 +57,8 @@ function record(fighter: Fighter, delta: Partial<Pick<Fighter, 'wins' | 'losses'
 export const useStore = create<StoreState>()(
   persist(
     (set, get) => ({
-      fighters: [],
-      weightClasses: DEFAULT_WEIGHT_CLASSES,
+      fighters: SEED_FIGHTERS,
+      weightClasses: SEED_WEIGHT_CLASSES,
       events: [],
       fights: [],
       titleReigns: [],

@@ -23,6 +23,18 @@ running their own fictional universe alongside a UFC video game career mode.
 All data is stored locally in your browser (`localStorage`) — there's no
 backend or account system.
 
+## Starting roster
+
+New installs start pre-loaded with a best-effort snapshot of the real UFC
+roster/champions/rankings (~July 2026), plus fighters exclusive to the
+EA Sports UFC 6 roster (legends and new additions), seeded as active but
+unranked (`src/utils/seedData.ts`). Every seeded fighter starts at 0-0-0 —
+this app tracks fights booked in *your* universe going forward, not real
+fight history. Rankings depth varies by division depending on what could be
+reliably sourced at seed time; add or reorder fighters on the Rankings page
+to fill in the rest. If you already have data in this browser, the seed is
+never re-applied — it only affects a fresh install.
+
 ## Development
 
 ```bash
