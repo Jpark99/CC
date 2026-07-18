@@ -63,6 +63,57 @@ function record(fighter: Fighter, delta: Partial<Pick<Fighter, 'wins' | 'losses'
   };
 }
 
+/** Reverses everything `recordResult` did for this fight: fighter record, rankings/championId, title reigns. */
+function reverseFightEffects(
+  s: Pick<StoreState, 'fighters' | 'weightClasses' | 'titleReigns'>,
+  fight: Fight
+): Pick<StoreState, 'fighters' | 'weightClasses' | 'titleReigns'> {
+  if (!fight.result) return s;
+  const { result, fighter1Id, fighter2Id } = fight;
+  const loserId =
+    result.winnerId === fighter1Id ? fighter2Id : result.winnerId === fighter2Id ? fighter1Id : undefined;
+  const isDraw = result.method === 'Draw';
+  const isNC = result.method === 'No Contest';
+
+  const fighters = s.fighters.map((f) => {
+    if (isNC) return f;
+    if (isDraw) {
+      if (f.id === fighter1Id || f.id === fighter2Id) return record(f, { draws: -1 });
+      return f;
+    }
+    if (f.id === result.winnerId) return record(f, { wins: -1 });
+    if (f.id === loserId) return record(f, { losses: -1 });
+    return f;
+  });
+
+  let weightClasses = s.weightClasses;
+  if (fight.rankingUndo) {
+    const { weightClassId, previousRankings, previousChampionId } = fight.rankingUndo;
+    weightClasses = weightClasses.map((w) =>
+      w.id === weightClassId ? { ...w, rankings: previousRankings, championId: previousChampionId } : w
+    );
+  }
+
+  let titleReigns = s.titleReigns;
+  if (fight.titleUndo) {
+    const tu = fight.titleUndo;
+    if (tu.kind === 'defense' && tu.defendedReignId) {
+      titleReigns = titleReigns.map((tr) =>
+        tr.id === tu.defendedReignId ? { ...tr, defenses: Math.max(0, tr.defenses - 1) } : tr
+      );
+    } else if (tu.kind === 'change') {
+      titleReigns = titleReigns.filter((tr) => tr.id !== tu.newReignId);
+      if (tu.endedReignId) {
+        titleReigns = titleReigns.map((tr) =>
+          tr.id === tu.endedReignId ? { ...tr, endDate: undefined, vacated: undefined } : tr
+        );
+      }
+    }
+  }
+
+  return { fighters, weightClasses, titleReigns };
+}
+
 export const useStore = create<StoreState>()(
   persist(
     (set, get) => ({
@@ -147,11 +198,26 @@ export const useStore = create<StoreState>()(
       updateEvent: (id, patch) =>
         set((s) => ({ events: s.events.map((e) => (e.id === id ? { ...e, ...patch } : e)) })),
 
-      deleteEvent: (id) =>
-        set((s) => ({
+      deleteEvent: (id) => {
+        const s = get();
+        // Undo results in reverse-recorded order so shared-division snapshots unwind correctly.
+        const eventFights = s.fights
+          .filter((fi) => fi.eventId === id && fi.result)
+          .sort((a, b) => (b.resultRecordedAt ?? 0) - (a.resultRecordedAt ?? 0));
+
+        let acc: Pick<StoreState, 'fighters' | 'weightClasses' | 'titleReigns'> = {
+          fighters: s.fighters,
+          weightClasses: s.weightClasses,
+          titleReigns: s.titleReigns,
+        };
+        for (const fight of eventFights) acc = reverseFightEffects(acc, fight);
+
+        set({
+          ...acc,
           events: s.events.filter((e) => e.id !== id),
           fights: s.fights.filter((fi) => fi.eventId !== id),
-        })),
+        });
+      },
 
       addFight: (f) => {
         const id = uuid();
@@ -164,11 +230,17 @@ export const useStore = create<StoreState>()(
       updateFight: (id, patch) =>
         set((s) => ({ fights: s.fights.map((fi) => (fi.id === id ? { ...fi, ...patch } : fi)) })),
 
-      removeFight: (id) =>
-        set((s) => ({
+      removeFight: (id) => {
+        const s = get();
+        const fight = s.fights.find((fi) => fi.id === id);
+        const reversed = fight
+          ? reverseFightEffects(s, fight)
+          : { fighters: s.fighters, weightClasses: s.weightClasses, titleReigns: s.titleReigns };
+        set({
+          ...reversed,
           fights: s.fights.filter((fi) => fi.id !== id),
-          titleReigns: s.titleReigns.filter((tr) => tr.wonFightId !== id),
-        })),
+        });
+      },
 
       reorderFights: (eventId, orderedFightIds) =>
         set((s) => ({
@@ -205,27 +277,39 @@ export const useStore = create<StoreState>()(
         let titleReigns = s.titleReigns;
 
         const wc = s.weightClasses.find((w) => w.id === weightClassId);
+        let rankingUndo: Fight['rankingUndo'];
+        let titleUndo: Fight['titleUndo'];
 
         if (wc && !isDraw && !isNC && result.winnerId && loserId) {
+          rankingUndo = {
+            weightClassId,
+            previousRankings: wc.rankings,
+            previousChampionId: wc.championId,
+          };
+
           if (isTitleFight) {
             const isChampionWinner = wc.championId === result.winnerId;
             if (isChampionWinner) {
+              const defendedReign = titleReigns.find((tr) => tr.weightClassId === weightClassId && !tr.endDate);
               titleReigns = titleReigns.map((tr) =>
                 tr.weightClassId === weightClassId && !tr.endDate
                   ? { ...tr, defenses: tr.defenses + 1 }
                   : tr
               );
+              if (defendedReign) titleUndo = { weightClassId, kind: 'defense', defendedReignId: defendedReign.id };
             } else {
               const oldChampionId = wc.championId;
+              const endedReign = titleReigns.find((tr) => tr.weightClassId === weightClassId && !tr.endDate);
               titleReigns = titleReigns.map((tr) =>
                 tr.weightClassId === weightClassId && !tr.endDate
                   ? { ...tr, endDate: new Date().toISOString(), vacated: false }
                   : tr
               );
+              const newReignId = uuid();
               titleReigns = [
                 ...titleReigns,
                 {
-                  id: uuid(),
+                  id: newReignId,
                   weightClassId,
                   championId: result.winnerId,
                   wonEventId: fight.eventId,
@@ -240,6 +324,7 @@ export const useStore = create<StoreState>()(
               weightClasses = weightClasses.map((w) =>
                 w.id === weightClassId ? { ...w, championId: result.winnerId, rankings } : w
               );
+              titleUndo = { weightClassId, kind: 'change', newReignId, endedReignId: endedReign?.id };
             }
           } else {
             const rankings = [...wc.rankings];
@@ -255,7 +340,9 @@ export const useStore = create<StoreState>()(
           }
         }
 
-        const fights = s.fights.map((fi) => (fi.id === fightId ? { ...fi, result } : fi));
+        const fights = s.fights.map((fi) =>
+          fi.id === fightId ? { ...fi, result, resultRecordedAt: Date.now(), rankingUndo, titleUndo } : fi
+        );
 
         set({ fighters, weightClasses, titleReigns, fights });
       },
@@ -264,26 +351,16 @@ export const useStore = create<StoreState>()(
         const s = get();
         const fight = s.fights.find((fi) => fi.id === fightId);
         if (!fight || !fight.result) return;
-        const { result, fighter1Id, fighter2Id } = fight;
-        const loserId =
-          result.winnerId === fighter1Id ? fighter2Id : result.winnerId === fighter2Id ? fighter1Id : undefined;
-        const isDraw = result.method === 'Draw';
-        const isNC = result.method === 'No Contest';
 
-        const fighters = s.fighters.map((f) => {
-          if (isNC) return f;
-          if (isDraw) {
-            if (f.id === fighter1Id || f.id === fighter2Id) return record(f, { draws: -1 });
-            return f;
-          }
-          if (f.id === result.winnerId) return record(f, { wins: -1 });
-          if (f.id === loserId) return record(f, { losses: -1 });
-          return f;
-        });
+        const reversed = reverseFightEffects(s, fight);
 
         set({
-          fighters,
-          fights: s.fights.map((fi) => (fi.id === fightId ? { ...fi, result: undefined } : fi)),
+          ...reversed,
+          fights: s.fights.map((fi) =>
+            fi.id === fightId
+              ? { ...fi, result: undefined, resultRecordedAt: undefined, rankingUndo: undefined, titleUndo: undefined }
+              : fi
+          ),
         });
       },
 

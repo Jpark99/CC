@@ -45,6 +45,24 @@ export interface FightResult {
   time: string; // mm:ss
 }
 
+/** Bookkeeping captured when a result is recorded, so it can be fully undone later. */
+export interface RankingUndo {
+  weightClassId: string;
+  previousRankings: string[];
+  previousChampionId?: string;
+}
+
+export interface TitleUndo {
+  weightClassId: string;
+  kind: 'defense' | 'change';
+  /** kind === 'defense': the reign whose defense count was incremented. */
+  defendedReignId?: string;
+  /** kind === 'change': the previous reign to reopen (clear its endDate). */
+  endedReignId?: string;
+  /** kind === 'change': the newly created reign to delete. */
+  newReignId?: string;
+}
+
 export interface Fight {
   id: string;
   eventId: string;
@@ -56,6 +74,10 @@ export interface Fight {
   cardPosition: 'Main Card' | 'Prelims' | 'Early Prelims';
   order: number;
   result?: FightResult;
+  /** When `result` was recorded (ms epoch) — used to undo multiple results in the right order. */
+  resultRecordedAt?: number;
+  rankingUndo?: RankingUndo;
+  titleUndo?: TitleUndo;
 }
 
 export type EventStatus = 'Upcoming' | 'Completed';
