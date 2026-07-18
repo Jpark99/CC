@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import type { Fight, FightMethod, UFCEvent } from '../types';
 import { Badge, Button, Card, EmptyState, Input, Label, Modal, PageHeader, Select } from '../components/ui';
-import { fighterDisplayName, formatDate, recordString } from '../utils/helpers';
+import { fighterDisplayName, fightsInDivision, formatDate, recordString } from '../utils/helpers';
 
 const METHODS: FightMethod[] = [
   'KO/TKO',
@@ -198,7 +198,8 @@ function AddFightModal({ event, onClose }: { event: UFCEvent; onClose: () => voi
   const [isMainEvent, setIsMainEvent] = useState(false);
   const [cardPosition, setCardPosition] = useState<Fight['cardPosition']>('Main Card');
 
-  const pool = fighters.filter((f) => f.weightClassId === weightClassId && f.status === 'Active');
+  const pool = fighters.filter((f) => fightsInDivision(f, weightClassId) && f.status === 'Active');
+  const weightClassName = (id: string) => weightClasses.find((w) => w.id === id)?.name ?? '';
 
   function save() {
     if (!weightClassId || !fighter1Id || !fighter2Id || fighter1Id === fighter2Id) return;
@@ -235,6 +236,7 @@ function AddFightModal({ event, onClose }: { event: UFCEvent; onClose: () => voi
               {pool.map((f) => (
                 <option key={f.id} value={f.id} disabled={f.id === fighter2Id}>
                   {fighterDisplayName(f)}
+                  {f.weightClassId !== weightClassId ? ` (usually ${weightClassName(f.weightClassId)})` : ''}
                 </option>
               ))}
             </Select>
@@ -246,6 +248,7 @@ function AddFightModal({ event, onClose }: { event: UFCEvent; onClose: () => voi
               {pool.map((f) => (
                 <option key={f.id} value={f.id} disabled={f.id === fighter1Id}>
                   {fighterDisplayName(f)}
+                  {f.weightClassId !== weightClassId ? ` (usually ${weightClassName(f.weightClassId)})` : ''}
                 </option>
               ))}
             </Select>

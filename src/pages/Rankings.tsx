@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useStore } from '../store/useStore';
 import { Button, Card, Label, PageHeader, Select } from '../components/ui';
-import { recordString, fighterDisplayName } from '../utils/helpers';
+import { recordString, fighterDisplayName, fightsInDivision } from '../utils/helpers';
 
 export default function Rankings() {
   const { fighters, weightClasses, setRankings, setChampion } = useStore();
@@ -10,6 +10,7 @@ export default function Rankings() {
   const [addingTo, setAddingTo] = useState<string | null>(null);
 
   const fighterById = useMemo(() => new Map(fighters.map((f) => [f.id, f])), [fighters]);
+  const weightClassById = useMemo(() => new Map(weightClasses.map((wc) => [wc.id, wc])), [weightClasses]);
 
   return (
     <div>
@@ -21,7 +22,7 @@ export default function Rankings() {
           const ranked = wc.rankings.map((id) => fighterById.get(id)).filter((f): f is NonNullable<typeof f> => !!f);
           const rankedIds = new Set(wc.rankings);
           const unranked = fighters.filter(
-            (f) => f.weightClassId === wc.id && f.id !== wc.championId && !rankedIds.has(f.id) && f.status === 'Active'
+            (f) => fightsInDivision(f, wc.id) && f.id !== wc.championId && !rankedIds.has(f.id) && f.status === 'Active'
           );
           const isOpen = openWc === wc.id;
 
@@ -62,10 +63,11 @@ export default function Rankings() {
                     >
                       <option value="">— Vacant —</option>
                       {fighters
-                        .filter((f) => f.weightClassId === wc.id && f.status === 'Active')
+                        .filter((f) => fightsInDivision(f, wc.id) && f.status === 'Active')
                         .map((f) => (
                           <option key={f.id} value={f.id}>
                             {fighterDisplayName(f)}
+                            {f.weightClassId !== wc.id ? ` (usually ${weightClassById.get(f.weightClassId)?.name})` : ''}
                           </option>
                         ))}
                     </Select>
@@ -93,6 +95,11 @@ export default function Rankings() {
                               <span className="w-6 text-right text-sm text-neutral-500 tabular-nums">{i + 1}</span>
                               <span className="text-sm text-neutral-100">{fighterDisplayName(f)}</span>
                               <span className="text-xs text-neutral-600">{recordString(f)}</span>
+                              {f.weightClassId !== wc.id && (
+                                <span className="text-[11px] text-neutral-600">
+                                  (usually {weightClassById.get(f.weightClassId)?.name})
+                                </span>
+                              )}
                             </div>
                             <button
                               className="text-xs text-neutral-600 hover:text-red-400"
@@ -124,6 +131,7 @@ export default function Rankings() {
                           {unranked.map((f) => (
                             <option key={f.id} value={f.id}>
                               {fighterDisplayName(f)}
+                              {f.weightClassId !== wc.id ? ` (usually ${weightClassById.get(f.weightClassId)?.name})` : ''}
                             </option>
                           ))}
                         </Select>

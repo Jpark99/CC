@@ -8,7 +8,9 @@ running their own fictional universe alongside a UFC video game career mode.
 ## Features
 
 - **Roster** — add fighters per weight class with nickname, country, stance,
-  status, and record.
+  status, and record. Fighters can also be marked eligible in additional
+  divisions (e.g. a lightweight who took a one-off welterweight fight),
+  making them bookable and rankable in either.
 - **Rankings** — set a champion per division and maintain a drag-to-reorder
   top-15 contenders list. Rankings shift automatically when you record a
   result.
@@ -45,6 +47,11 @@ npm run seed:generate   # requires python3
 
 If you already have data in this browser, the seed is never re-applied — it
 only affects a fresh install.
+
+Fighters listed under more than one division in the CSV (e.g. Max Holloway:
+`"welterweight, lightweight"`) get a primary division plus
+`secondaryWeightClassIds` for the rest, so they show up as eligible in both
+places instead of only their first-listed division.
 
 ## Development
 

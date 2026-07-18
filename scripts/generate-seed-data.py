@@ -66,10 +66,18 @@ def load_csv_fighters():
             if not name or not wc_field or gender not in ("male", "female"):
                 continue  # incomplete rows (4 in the source data)
 
-            primary_wc = wc_field.split(",")[0].strip().lower()
-            if primary_wc not in WC_MAP:
+            # A fighter can be eligible in more than one division (e.g. "welterweight,
+            # lightweight"); keep every valid one, first-listed = primary/home division.
+            wc_tokens = [t.strip().lower() for t in wc_field.split(",")]
+            wc_ids = []
+            for tok in wc_tokens:
+                mapped = WC_MAP.get(tok)
+                if mapped and mapped[0] not in wc_ids:
+                    wc_ids.append(mapped[0])
+            if not wc_ids:
                 continue
-            wc_id = WC_MAP[primary_wc][0]
+            wc_id = wc_ids[0]
+            secondary_wc_ids = wc_ids[1:]
 
             country_field = row.get("country", "").strip()
             country = country_field.split(",")[0].strip() if country_field and country_field != "NA" else None
@@ -93,6 +101,7 @@ def load_csv_fighters():
                 "id": fid,
                 "name": name,
                 "weightClassId": wc_id,
+                "secondaryWeightClassIds": secondary_wc_ids,
                 "country": country,
                 "wins": wins,
                 "losses": losses,
@@ -171,6 +180,9 @@ def build_legends(used_ids):
 
 def fighter_literal(f: dict) -> str:
     parts = [f"id: {ts_str(f['id'])}", f"name: {ts_str(f['name'])}", f"weightClassId: {ts_str(f['weightClassId'])}"]
+    secondary = f.get("secondaryWeightClassIds")
+    if secondary:
+        parts.append(f"secondaryWeightClassIds: [{', '.join(ts_str(w) for w in secondary)}]")
     if f.get("nickname"):
         parts.append(f"nickname: {ts_str(f['nickname'])}")
     if f.get("country"):
@@ -204,6 +216,12 @@ def main():
     lines.append(" * Records reflect real career win/loss totals from the source data at")
     lines.append(" * generation time; draws/no-contests beyond the CSV's wins+losses total")
     lines.append(" * are folded into `draws`. Legends/retired additions start at 0-0-0.")
+    lines.append(" *")
+    lines.append(" * Fighters listed under more than one division in the CSV (e.g. a champ")
+    lines.append(" * who moved up) get `secondaryWeightClassIds` for every division beyond")
+    lines.append(" * the first — current_rank/championId still apply only to the primary")
+    lines.append(" * (first-listed) division, since that's the one they're actually ranked")
+    lines.append(" * in right now.")
     lines.append(" */")
     lines.append("")
     lines.append("export const SEED_FIGHTERS: Fighter[] = [")

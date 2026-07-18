@@ -7,7 +7,10 @@ export interface Fighter {
   name: string;
   nickname?: string;
   country?: string;
+  /** Primary/home division — used for roster grouping and as the default division. */
   weightClassId: string;
+  /** Other divisions this fighter can be booked or ranked in (e.g. a champ who moved up). */
+  secondaryWeightClassIds?: string[];
   stance?: Stance;
   status: FighterStatus;
   wins: number;

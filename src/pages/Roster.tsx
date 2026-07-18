@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useStore } from '../store/useStore';
 import type { Fighter, FighterStatus, Stance } from '../types';
 import { Badge, Button, Card, EmptyState, Input, Label, Modal, PageHeader, Select } from '../components/ui';
-import { recordString, fighterDisplayName } from '../utils/helpers';
+import { recordString, fighterDisplayName, fightsInDivision } from '../utils/helpers';
 
 const STANCES: Stance[] = ['Orthodox', 'Southpaw', 'Switch'];
 const STATUSES: FighterStatus[] = ['Active', 'Injured', 'Suspended', 'Retired'];
@@ -12,6 +12,7 @@ const emptyForm = {
   nickname: '',
   country: '',
   weightClassId: '',
+  secondaryWeightClassIds: [] as string[],
   stance: 'Orthodox' as Stance,
   status: 'Active' as FighterStatus,
   wins: 0,
@@ -28,12 +29,24 @@ export default function Roster() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
 
+  const weightClassById = useMemo(() => new Map(weightClasses.map((wc) => [wc.id, wc])), [weightClasses]);
+
   const grouped = useMemo(() => {
-    const filtered = fighters.filter((f) => {
-      if (filterWc !== 'all' && f.weightClassId !== filterWc) return false;
-      if (search && !fighterDisplayName(f).toLowerCase().includes(search.toLowerCase())) return false;
-      return true;
-    });
+    const matchesSearch = (f: Fighter) =>
+      !search || fighterDisplayName(f).toLowerCase().includes(search.toLowerCase());
+
+    if (filterWc !== 'all') {
+      // Filtering to one division: show everyone eligible there (primary or secondary),
+      // in a single group — not fragmented across each fighter's own primary division.
+      const wc = weightClassById.get(filterWc);
+      if (!wc) return [];
+      const list = fighters
+        .filter((f) => fightsInDivision(f, filterWc) && matchesSearch(f))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      return list.length > 0 ? [{ wc, list }] : [];
+    }
+
+    const filtered = fighters.filter(matchesSearch);
     const byWc = new Map<string, Fighter[]>();
     for (const f of filtered) {
       const arr = byWc.get(f.weightClassId) ?? [];
@@ -43,7 +56,7 @@ export default function Roster() {
     return weightClasses
       .map((wc) => ({ wc, list: (byWc.get(wc.id) ?? []).sort((a, b) => a.name.localeCompare(b.name)) }))
       .filter((g) => g.list.length > 0);
-  }, [fighters, weightClasses, filterWc, search]);
+  }, [fighters, weightClasses, weightClassById, filterWc, search]);
 
   function openAdd() {
     setEditingId(null);
@@ -58,6 +71,7 @@ export default function Roster() {
       nickname: f.nickname ?? '',
       country: f.country ?? '',
       weightClassId: f.weightClassId,
+      secondaryWeightClassIds: f.secondaryWeightClassIds ?? [],
       stance: f.stance ?? 'Orthodox',
       status: f.status,
       wins: f.wins,
@@ -70,11 +84,13 @@ export default function Roster() {
 
   function save() {
     if (!form.name.trim() || !form.weightClassId) return;
+    const secondaryWeightClassIds = form.secondaryWeightClassIds.filter((id) => id !== form.weightClassId);
     const payload = {
       name: form.name.trim(),
       nickname: form.nickname.trim() || undefined,
       country: form.country.trim() || undefined,
       weightClassId: form.weightClassId,
+      secondaryWeightClassIds: secondaryWeightClassIds.length > 0 ? secondaryWeightClassIds : undefined,
       stance: form.stance,
       status: form.status,
     };
@@ -141,6 +157,16 @@ export default function Roster() {
                         </div>
                         <div className="text-xs text-neutral-500 mt-0.5">
                           {recordString(f)} {f.country && `· ${f.country}`} {f.stance && `· ${f.stance}`}
+                          {f.secondaryWeightClassIds && f.secondaryWeightClassIds.length > 0 && (
+                            <>
+                              {' '}
+                              · also{' '}
+                              {f.secondaryWeightClassIds
+                                .map((id) => weightClassById.get(id)?.name)
+                                .filter(Boolean)
+                                .join(', ')}
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -196,6 +222,30 @@ export default function Roster() {
               <Label htmlFor="fighter-country">Country</Label>
               <Input id="fighter-country" value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} placeholder="USA" />
             </div>
+          </div>
+          <div>
+            <Label htmlFor="fighter-secondary-wc">Also eligible in (optional)</Label>
+            <Select
+              id="fighter-secondary-wc"
+              multiple
+              value={form.secondaryWeightClassIds}
+              onChange={(e) =>
+                setForm({ ...form, secondaryWeightClassIds: Array.from(e.target.selectedOptions, (o) => o.value) })
+              }
+              className="h-28"
+            >
+              {weightClasses
+                .filter((wc) => wc.id !== form.weightClassId)
+                .map((wc) => (
+                  <option key={wc.id} value={wc.id}>
+                    {wc.name}
+                  </option>
+                ))}
+            </Select>
+            <p className="text-[11px] text-neutral-600 mt-1">
+              Ctrl/Cmd-click to select multiple. Lets this fighter be booked or ranked in more than one division —
+              e.g. a champion who moved up, or a lightweight who took a one-off welterweight fight.
+            </p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
