@@ -25,15 +25,22 @@ backend or account system.
 
 ## Starting roster
 
-New installs start pre-loaded with a best-effort snapshot of the real UFC
-roster/champions/rankings (~July 2026), plus fighters exclusive to the
-EA Sports UFC 6 roster (legends and new additions), seeded as active but
-unranked (`src/utils/seedData.ts`). Every seeded fighter starts at 0-0-0 —
-this app tracks fights booked in *your* universe going forward, not real
-fight history. Rankings depth varies by division depending on what could be
-reliably sourced at seed time; add or reorder fighters on the Rankings page
-to fill in the rest. If you already have data in this browser, the seed is
-never re-applied — it only affects a fresh install.
+New installs start pre-loaded with the current UFC roster, champions, and
+divisional rankings, generated from `data/ufc-fighters.csv`, plus a
+hand-curated set of legends and retired fighters exclusive to the EA Sports
+UFC 6 roster (Korean Zombie, GSP, Anderson Silva, Jon Jones, Ronda Rousey,
+etc.), added active but unranked. Real fighters carry their real career
+win/loss record from the CSV; legends/retired additions start at 0-0-0.
+`src/utils/seedData.ts` is generated — don't hand-edit it. To refresh it
+after updating `data/ufc-fighters.csv` or the legends list in
+`scripts/generate-seed-data.py`, run:
+
+```bash
+npm run seed:generate   # requires python3
+```
+
+If you already have data in this browser, the seed is never re-applied — it
+only affects a fresh install.
 
 ## Development
 

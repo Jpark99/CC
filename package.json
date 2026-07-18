@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "seed:generate": "python3 scripts/generate-seed-data.py"
   },
   "dependencies": {
     "react": "^19.2.7",
