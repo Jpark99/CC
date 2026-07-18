@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom';
+import DataControls from './DataControls';
 
 const links = [
   { to: '/', label: 'Dashboard', end: true },
@@ -34,9 +35,7 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
-        <div className="px-5 py-4 border-t border-neutral-800 text-[11px] text-neutral-600">
-          All data is saved locally in this browser.
-        </div>
+        <DataControls />
       </aside>
       <main className="ml-56 flex-1 min-h-screen">
         <div className="max-w-6xl mx-auto px-8 py-8">

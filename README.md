@@ -21,7 +21,11 @@ running their own fictional universe alongside a UFC video game career mode.
   a glance.
 
 All data is stored locally in your browser (`localStorage`) — there's no
-backend or account system.
+backend or account system. Use the **Export**/**Import** buttons at the
+bottom of the sidebar to back up your full universe (fighters, weight
+classes, events, fights, and title history) to a JSON file, or restore one.
+Importing replaces all current data, so export first if you want to keep
+what you have.
 
 ## Starting roster
 

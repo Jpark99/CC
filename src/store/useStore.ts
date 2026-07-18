@@ -42,6 +42,15 @@ interface StoreState {
   reorderFights: (eventId: string, orderedFightIds: string[]) => void;
   recordResult: (fightId: string, result: FightResult) => void;
   clearResult: (fightId: string) => void;
+
+  // Data transfer
+  importData: (data: {
+    fighters: Fighter[];
+    weightClasses: WeightClass[];
+    events: UFCEvent[];
+    fights: Fight[];
+    titleReigns: TitleReign[];
+  }) => void;
 }
 
 function record(fighter: Fighter, delta: Partial<Pick<Fighter, 'wins' | 'losses' | 'draws' | 'noContests'>>): Fighter {
@@ -277,6 +286,15 @@ export const useStore = create<StoreState>()(
           fights: s.fights.map((fi) => (fi.id === fightId ? { ...fi, result: undefined } : fi)),
         });
       },
+
+      importData: (data) =>
+        set({
+          fighters: data.fighters,
+          weightClasses: data.weightClasses,
+          events: data.events,
+          fights: data.fights,
+          titleReigns: data.titleReigns,
+        }),
     }),
     { name: 'ufc-president-mode' }
   )
